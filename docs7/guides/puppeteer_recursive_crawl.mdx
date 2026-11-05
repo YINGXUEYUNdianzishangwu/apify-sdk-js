@@ -1,0 +1,32 @@
+---
+title: Puppeteer recursive crawl
+---
+
+Run the following example to perform a recursive crawl of a website using [`PuppeteerCrawler`](https://crawlee.dev/js/puppeteer-crawler/class/PuppeteerCrawler).
+
+<Tip>
+
+To run this example on the Apify Platform, select the `apify/actor-node-puppeteer-chrome` image for your Dockerfile.
+
+</Tip>
+
+```js
+
+await Actor.init();
+
+const crawler = new PuppeteerCrawler({
+    async requestHandler({ request, page, enqueueLinks }) {
+        const title = await page.title();
+        console.log(`Title of ${request.url}: ${title}`);
+
+        await enqueueLinks({
+            pseudoUrls: ['https://www.iana.org/[.*]'],
+        });
+    },
+    maxRequestsPerCrawl: 10,
+});
+
+await crawler.run(['https://www.iana.org/']);
+
+await Actor.exit();
+```

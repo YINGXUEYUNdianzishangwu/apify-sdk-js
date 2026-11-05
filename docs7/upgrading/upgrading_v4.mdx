@@ -1,0 +1,307 @@
+---
+title: Upgrading to v4
+---
+
+This page summarizes the breaking changes between Apify SDK v3 and v4. Apify SDK v4 adopts the redesigned Crawlee v4 interfaces (`Configuration`, `EventManager`, `StorageClient`, `ProxyConfiguration`), so most of the changes here track the corresponding Crawlee v4 changes.
+
+## Node.js 22.13+
+
+The SDK now requires **Node.js 22.13 or newer**.
+
+## ESM
+
+The SDK is now published as native ESM (the package is `"type": "module"`) and no longer ships a separate CommonJS build. This does **not** change how you load it: the SDK has no top-level `await`, and the supported Node.js versions can `require()` ESM modules, so both `import` and `require('apify')` keep working.
+
+```ts
+
+// CommonJS projects can still use:
+const { Actor } = require('apify');
+```
+
+## Configuration
+
+The `Configuration` class no longer exposes `.get(key)` / `.set(key, value)`. Configuration values are resolved eagerly at construction time and exposed as plain typed properties.
+
+Before (v3):
+
+```ts
+
+const config = Configuration.getGlobalConfiguration();
+const token = config.get('token');
+config.set('token', 'new-token');
+```
+
+After (v4):
+
+```ts
+
+// Construct with overrides — Configuration is immutable.
+const config = new Configuration({ token: 'new-token' });
+const token = config.token;
+```
+
+Resolution order (highest to lowest priority): constructor options → environment variables → `crawlee.json` → schema defaults.
+
+Empty-string environment variables are treated as unset (they fall through to the schema default) rather than being coerced to `0` / `''` / `false`. For example, `ACTOR_MAX_TOTAL_CHARGE_USD=""` now resolves to `undefined` instead of `0`.
+
+`userIsPaying` (both `Configuration.userIsPaying` and `Actor.getEnv().userIsPaying`) is now a `boolean` instead of the raw `APIFY_USER_IS_PAYING` string; `0`, `false`, empty or unset resolve to `false`.
+
+When a setting is exposed under several environment variables, the Apify-specific ones take precedence over Crawlee's generic one — i.e. `ACTOR_*` / `APIFY_*` are checked before `CRAWLEE_*`. For example, if both `APIFY_HEADLESS` and `CRAWLEE_HEADLESS` are set, `APIFY_HEADLESS` wins.
+
+`new Actor({ configuration })` accepts a pre-built `Configuration`, but it must be the Apify SDK's `Configuration` (imported from `apify`), not a bare Crawlee one — otherwise the `APIFY_*` / `ACTOR_*` environment variables are never resolved, so the SDK now throws if given a non-Apify instance.
+
+`Actor.config` was renamed to `Actor.configuration` (both the static getter and the instance property), and `Configuration.getGlobalConfig()` to `Configuration.getGlobalConfiguration()`, following the same renames in Crawlee v4. The public `config` properties of `ProxyConfiguration` and `PlatformEventManager` were renamed to `configuration` as well.
+
+## ProxyConfiguration: `newUrl()` / `newProxyInfo()` no longer take `sessionId`
+
+The `sessionId` parameter has been removed from both `ProxyConfiguration.newUrl()` and `ProxyConfiguration.newProxyInfo()`. Each call now returns an independent URL; for Apify Proxy the SDK mints a fresh random session id internally for every URL it hands out, so consecutive calls resolve to different IPs.
+
+Before (v3):
+
+```ts
+const proxyConfiguration = await Actor.createProxyConfiguration({
+    groups: ['RESIDENTIAL'],
+});
+
+// Sticky pairing: same sessionId → same proxy URL → same IP.
+const url1 = await proxyConfiguration.newUrl('mySession');
+const url2 = await proxyConfiguration.newUrl('mySession'); // === url1
+```
+
+After (v4):
+
+```ts
+const proxyConfiguration = await Actor.createProxyConfiguration({
+    groups: ['RESIDENTIAL'],
+});
+
+// Every call returns an independent URL with its own session id.
+const url1 = await proxyConfiguration.newUrl();
+const url2 = await proxyConfiguration.newUrl(); // !== url1
+```
+
+Session continuity (reusing the same IP across multiple requests) is now handled one level up by Crawlee's `SessionPool`: a `Session` stores the proxy URL it was paired with and the crawler reuses that URL for subsequent requests bound to the same session. When using `CheerioCrawler`, `PlaywrightCrawler`, etc. with `useSessionPool: true`, this is automatic — no code changes are required on the consumer side.
+
+`ProxyInfo` no longer carries a `sessionId` field. If you used it for logging or analytics, parse the `session-<id>` segment out of `proxyInfo.username` instead (it is included for Apify Proxy URLs).
+
+The `tieredProxyUrls` and `tieredProxyConfig` options on `ProxyConfigurationOptions` were dropped in Crawlee v4 ([apify/crawlee#3599](https://github.com/apify/crawlee/pull/3599)) and the SDK no longer threads them through. Migrate to named sessions via `SessionPool` if you relied on tiered rotation.
+
+The `protected` methods of `ProxyConfiguration` lost their underscore prefix, which matters only if you subclassed it and overrode one of them:
+
+- `_getUsername()` -> `getUsername()`
+- `_checkAccess()` -> `checkAccess()`
+- `_fetchStatus()` -> `fetchStatus()`
+- `_throwCannotCombineCustomWithApify()` -> `throwCannotCombineCustomWithApify()`
+
+In addition, `_setPasswordIfToken()` is now `private setPasswordIfToken()` (it was never meant to be part of the subclassing surface), and `_throwCannotCombineCustomMethods()` was removed — the Crawlee base class already performs the same validation with the same error message.
+
+## EventManager
+
+`PlatformEventManager` now extends Crawlee v4's `EventManager` and integrates with the new service locator. Use `Configuration.getGlobalConfiguration()` (or pass a `Configuration` instance explicitly) when constructing it directly — the constructor no longer accepts a `config` override via the `override` keyword pattern because Crawlee's base class manages the configuration through `serviceLocator` instead of a `config` field.
+
+If you only interact with events through `Actor.on()` / `Actor.off()` / `Actor.events`, no code changes are needed.
+
+### Platform events websocket
+
+`Actor.init()` (and `PlatformEventManager.init()`) now waits for the connection to the platform events websocket and rejects if it cannot be established. Previously the failure was only logged and the run continued without any platform events. Locally, where `ACTOR_EVENTS_WEBSOCKET_URL` is not set, nothing changes.
+
+Once connected, a dropped connection is re-established automatically with backoff, so `migrating`, `aborting` and `persistState` keep arriving after a network blip. The connection is not re-established after a close code signalling a permanent condition, such as `1008` for an unknown run ID.
+
+## StorageBackend
+
+The SDK's storage layer was adapted to the new Crawlee v4 `StorageBackend` interface. The Apify platform client is wrapped via the `ApifyStorageBackend` adapter — now exported from `apify` — which implements `createDatasetBackend`, `createKeyValueStoreBackend`, and `createRequestQueueBackend`.
+
+`Actor` wires this up for you, so most code needs no changes. But if you previously passed a raw `apify-client` `ApifyClient` straight into a Crawlee storage as its `storageClient` — which worked in v3 — it no longer does: Crawlee v4 calls `createKeyValueStoreBackend()` / `createDatasetBackend()`, which the raw client doesn't implement. Wrap it in `ApifyStorageBackend`:
+
+```ts
+// v3
+
+const client = new ApifyClient({ token });
+const store = await KeyValueStore.open(storeId, { storageClient: client });
+
+// v4
+
+const client = new ApifyClient({ token });
+const store = await KeyValueStore.open(storeId, { storageBackend: new ApifyStorageBackend(client) });
+```
+
+### Request queue access modes
+
+On the platform, request queues can now be consumed in two modes, controlled by the `requestQueueAccess` option of `Actor.init()` (or of `ApifyStorageBackend` when constructing it directly):
+
+- `'single'` (default) assumes the run is the only consumer of its request queues. Requests are not locked server-side and the queue head is estimated locally, which means fewer (paid) API calls and better performance. Multiple producers may still add requests concurrently.
+- `'shared'` locks every fetched request server-side, so several concurrent consumers (e.g. multiple Actor runs) can process one queue safely, at the cost of roughly one extra API call per request. Unlike v3's `RequestQueueV2`, it does not re-fetch the queue head after a forefront insert or a reclaimed request, so processing order only loosely follows forefront placement.
+
+```ts
+await Actor.init({ requestQueueAccess: 'shared' });
+```
+
+`KeyValueStore.getPublicUrl()` is now asynchronous (it signs URLs server-side when running on the Apify platform). Update call sites accordingly:
+
+```ts
+// v3
+const url = store.getPublicUrl('myKey');
+
+// v4
+const url = await store.getPublicUrl('myKey');
+```
+
+## Actor input
+
+Reading the run input now lives entirely in the SDK; Crawlee v4 dropped `KeyValueStore.getInput()` and its `inputKey` configuration option, so the SDK owns the whole path from the input key to the parsed value.
+
+### `Actor.getInput()` throws when there is no input
+
+`Actor.getInput()` no longer resolves to `null` for a missing input. It throws an `ActorInputError` with `code: 'NOT_FOUND'` instead, and its return type is `Promise<T>` rather than `Promise<T | null>`. `Actor.getInputOrThrow()` is removed — it did exactly what `getInput()` does now.
+
+`ActorInputError` (exported from `apify`) is also thrown when the input is found in more than one place (`'MULTIPLE_FILES'`, see below), when a JSON input does not parse (`'PARSE_FAILED'`, parser error in `cause`) and when the input's secret fields cannot be decrypted (`'DECRYPTION_FAILED'`, original error in `cause`). Anything else `getInput()` throws, such as an Apify API error, is not an input problem — rethrow it.
+
+```ts
+// v3
+const input = await Actor.getInputOrThrow();
+const optionalInput = (await Actor.getInput()) ?? {};
+
+// v4
+
+const input = await Actor.getInput();
+
+let optionalInput = {};
+try {
+    optionalInput = await Actor.getInput();
+} catch (error) {
+    // no input, e.g. an Actor without an input schema started with none
+    if (!(error instanceof ActorInputError) || error.code !== 'NOT_FOUND') throw error;
+}
+```
+
+### Input without an extension is parsed as JSON
+
+A local input file without an extension (a bare `INPUT` in `storage/key_value_stores/default`) is read as `application/octet-stream`. `Actor.getInput()` parses such a record with JSON5 (the parser `KeyValueStore.getValue()` uses for JSON records, so plain JSON works too) and returns the raw `Buffer` when it does not parse. Records with any other content type are parsed exactly as `KeyValueStore.getValue()` parses them.
+
+### Input file in the working directory
+
+When running locally, `Actor.getInput()` also accepts an `INPUT` or `INPUT.json` file in the current working directory (the file name follows the configured input key). The bare file follows the octet-stream rule above; the `.json` file is parsed with JSON5 like any JSON record. With a storage backend that doesn't read the default key-value store directory itself, such as in-memory storage, the same file is also picked up from `<storage dir>/key_value_stores/<default store id>`, where `apify run` writes it. The input must be in exactly one place: both files in one directory, or a file in the working directory next to an input in the store, make `getInput()` throw `'MULTIPLE_FILES'` instead of picking one. Crawlee v3's `KeyValueStore.getInput()` silently preferred the working directory file in that case; delete whichever copy you don't mean. None of this runs on the Apify platform. The working directory lookup is new to the SDK — v3's `Actor.getInput()` only ever read the key-value store.
+
+### Input key configuration
+
+`Configuration.inputKey` is resolved from `ACTOR_INPUT_KEY`, then `APIFY_INPUT_KEY`, then `CRAWLEE_INPUT_KEY`, defaulting to `INPUT`. The last one is kept for compatibility with the Apify CLI, which sets all three; Crawlee itself no longer reads it. Locally the Actor stores data through `ApifyFileSystemStorageBackend`, a new export that extends Crawlee's `FileSystemStorageBackend`: it adopts a bare `INPUT` / `INPUT.json` in the default store as the record `INPUT` (and likewise a file named after the configured key as that key's record), and spares those keys when the store is purged on start. Plain Crawlee's backend does neither, so an `Actor.init({ storage })` with a plain `FileSystemStorageBackend` reads no hand-placed input and purges it. See [Out-of-band key-value files](https://crawlee.dev/js/docs/next/upgrading/upgrading-to-v4#out-of-band-key-value-files-eg-a-hand-placed-inputjson) in the Crawlee upgrading guide for the adoption rules.
+
+## `Actor.main()` honors its options when the user function throws
+
+When the user function threw, `Actor.main()` used to ignore the options it was given and always called `process.exit(91)`. It now passes them to `Actor.exit()`, so `exit: false` keeps the process alive and `statusMessage` and `timeoutSecs` apply on the error path too. The exit code is still 91 on error; a caller-supplied `exitCode` only applies when the user function succeeds. `main()` still resolves after a thrown error instead of rethrowing it.
+
+```ts
+// v3: process.exit(91)
+// v4: logs the error and resolves
+await Actor.main(
+    async () => {
+        throw new Error('boom');
+    },
+    { exit: false },
+);
+```
+
+## `apify-client` v3
+
+The SDK now depends on `apify-client` v3. `Actor.apifyClient` and `Actor.newClient()` return a v3 client, so code that calls the client directly is subject to the client's own breaking changes, listed in the [`apify-client` upgrading guide](https://docs.apify.com/api/client/js/docs/next/upgrading/upgrading-to-v3). These are the ones SDK users are most likely to hit:
+
+- The `timeout` option of `Actor.call()`, `Actor.start()` and `Actor.callTask()` keeps its name and meaning (seconds, or `'inherit'`). The SDK passes it to the client as `runTimeoutSecs`. Only direct client calls, such as `Actor.apifyClient.actor(id).call(input, { timeout })`, need the new name.
+- The client constructor no longer accepts `timeoutSecs`, and neither does `Actor.newClient()`. Use the per-tier options (`timeoutShortSecs`, `timeoutMediumSecs`, `timeoutLongSecs` and `timeoutMaxSecs`) instead.
+- API errors are thrown as subclasses of `ApifyApiError`, such as `NotFoundError` or `ForbiddenError`. Checks on `instanceof ApifyApiError` and `statusCode` keep working, but log tooling that matches on the `ApifyApiError` name has to match the subclass names too.
+
+### Actor input is typed
+
+`Actor.call()`, `Actor.metamorph()` and the instance method `actor.start()` used to take their `input` as `unknown`. It is now typed as the client's `ActorInput`: a plain object, an array of plain objects, or raw bytes (a `Buffer`, `Uint8Array` or `ArrayBuffer`). Nothing changes at runtime, but some inputs stop compiling:
+
+- A raw `string`, with or without `contentType`. Pass an object instead. With `contentType: 'application/x-www-form-urlencoded'`, the client form-encodes the object for you.
+- `null`. Omit the argument or pass `undefined` to run an Actor without input.
+- A value typed as an `interface` or a class, since `ActorInput` needs an index signature. Declare the type as a `type` alias, or spread the value into a new object.
+
+```ts
+// v3
+await Actor.call('my-actor', 'some=body', { contentType: 'application/x-www-form-urlencoded' });
+
+// v4
+await Actor.call('my-actor', { some: 'body' }, { contentType: 'application/x-www-form-urlencoded' });
+```
+
+## `maxItems` option removed
+
+`Actor.start()`, `Actor.call()`, `Actor.startTask()`, `Actor.callTask()` and `Actor.resurrect()` no longer include the `maxItems` option. It applied only to the pay-per-result pricing model. Instead, use `maxTotalChargeUsd`, which caps the cost of a run for any pricing model.
+
+```ts
+// v3
+await Actor.call('my-actor', input, { maxItems: 100 });
+
+// v4
+await Actor.call('my-actor', input, { maxTotalChargeUsd: 5 });
+```
+
+## `Actor.setStatusMessage()` resolves `undefined` when no run was updated
+
+`Actor.setStatusMessage()` used to resolve an empty object cast to `ActorRun` when there was no run to update (locally) or when the update failed or timed out, so there was no way to tell that nothing happened. It now returns `Promise<ActorRun | undefined>` and resolves `undefined` in those cases. A failed or timed-out update still logs a warning rather than throwing.
+
+```ts
+const run = await Actor.setStatusMessage('Crawled 10/100 pages');
+if (run) {
+    console.log(run.statusMessage);
+}
+```
+
+## `Actor.abort()` sets `statusMessage` on the aborted run
+
+`Actor.abort(runId, { statusMessage })` used to set the message, as terminal, on the *calling* run, via `Actor.setStatusMessage()`. The aborted run kept its old message and the caller's run was left with a terminal message it could no longer change. It now updates `runId` through the same client it aborts with, so the `token` option applies to the status message as well. The message is no longer logged by the SDK. If you relied on the old behaviour to annotate your own run, call `Actor.setStatusMessage()` yourself.
+
+## Outdated SDK warning removed
+
+`Actor.init()` no longer logs a warning when a newer SDK version is available. The SDK stopped reading `APIFY_DISABLE_OUTDATED_WARNING` and `APIFY_SDK_LATEST_VERSION`, and `Actor.getEnv()` no longer returns the matching `disableOutdatedWarning` and `sdkLatestVersion` fields.
+
+To get notified about new SDK versions instead, set up [Renovate](https://docs.renovatebot.com/) on your Actor's GitHub repository. It opens a pull request whenever a new `apify` version is released.
+
+## Argument validation (`ow` → `zod`)
+
+Runtime argument validation (e.g. `Actor.addWebhook()`, `Actor.setStatusMessage()`, `Actor.openDataset()` / `openKeyValueStore()` / `openRequestQueue()`, and the `ProxyConfiguration` constructor) now uses [`zod`](https://zod.dev) instead of `ow`. Validation is just as strict — invalid arguments still throw synchronously, before any work is done — but the **error messages changed**.
+
+For example, `new ProxyConfiguration({ countryCode: 'CZE' })` throws:
+
+```diff
+- Expected property string `countryCode` to match `/^[A-Z]{2}$/`, got `CZE` in object   // v3 (ow)
++ Invalid string: must match pattern /^[A-Z]{2}$/ at `countryCode`, got `CZE`            // v4 (zod)
+```
+
+If you matched on the exact text of these validation errors, update those checks. Validation failures now throw an `ArgumentValidationError` (exported from `apify`) whose `issues` expose the structured zod issues, so you can branch on them programmatically instead of parsing the message:
+
+```ts
+
+try {
+    new ProxyConfiguration({ countryCode: 'CZE' });
+} catch (e) {
+    const error = e as ArgumentValidationError;
+    console.log(error.message); // human-readable sentence (the text shown above)
+    console.log(error.issues); // structured zod issues, if you need to branch on them
+}
+```
+
+The original `ZodError` is also kept on `error.cause`.
+
+## Private properties are now native `#` fields
+
+Classes across the SDK (`Actor`, `ProxyConfiguration`, `ChargingManager`, `ApifyStorageBackend`, the request queue backends, `PlatformEventManager`, ...) declare their private properties as native JavaScript `#` fields instead of TypeScript's `private` keyword. TypeScript's `private` is erased at compile time, so those properties used to be reachable at runtime — via a cast, bracket access, `Object.keys()`, or `JSON.stringify()`. Native `#` fields are not: they are invisible to enumeration and serialization, and reading one from outside the class is a syntax error. If you (or a test) reached into an SDK internal this way, use the public API instead.
+
+`protected` members keep the `protected` keyword and stay overridable in subclasses; they only lost their underscore prefixes.
+
+One internal that tests commonly reached for was the static `Actor._instance`, the cached instance behind `Actor.getDefaultInstance()`. It is now `#`-private, with an `@internal` seam for replacing or clearing it:
+
+```ts
+Actor.setDefaultInstance(myActor); // install a custom default instance
+Actor.setDefaultInstance(); // drop the cached one
+```
+
+## Dependencies
+
+The SDK dropped several runtime dependencies in favor of native Node.js APIs and packages it already pulls in:
+
+- **`got-scraping`** — the internal Apify Proxy status check now uses a native `node:http` request. If your Actor imported `got-scraping` transitively through `apify`, add it to your own `dependencies`.
+- **`fs-extra`** — replaced with `node:fs`.
+- **`ow`** — replaced with `zod` (see above).
+- **`semver`** — only the removed outdated-SDK warning used it.

@@ -1,0 +1,143 @@
+---
+title: Capture a screenshot using Puppeteer
+---
+
+<Tip>
+
+To run this example on the Apify Platform, select the `apify/actor-node-puppeteer-chrome` image for your Dockerfile.
+
+</Tip>
+
+This example captures a screenshot of a web page using `Puppeteer`. It would look almost exactly the same with `Playwright`.
+
+<Tabs groupId="puppeteer-capture-screenshot">
+<Tab title="Page Screenshot">
+
+Using `page.screenshot()`:
+
+```js
+
+await Actor.init();
+
+const url = 'http://www.example.com/';
+// Start a browser
+const browser = await launchPuppeteer();
+
+// Open new tab in the browser
+const page = await browser.newPage();
+
+// Navigate to the URL
+await page.goto(url);
+
+// Capture the screenshot
+const screenshot = await page.screenshot();
+
+// Save the screenshot to the default key-value store
+await Actor.setValue('my-key', screenshot, { contentType: 'image/png' });
+
+// Close Puppeteer
+await browser.close();
+
+await Actor.exit();
+```
+
+</Tab>
+
+<Tab title="Crawler Utils Screenshot" >
+
+Using `puppeteerUtils.saveSnapshot()`:
+
+```js
+
+await Actor.init();
+
+const url = 'http://www.example.com/';
+// Start a browser
+const browser = await launchPuppeteer();
+
+// Open new tab in the browser
+const page = await browser.newPage();
+
+// Navigate to the URL
+await page.goto(url);
+
+// Capture the screenshot
+await utils.puppeteer.saveSnapshot(page, { key: 'my-key', saveHtml: false });
+
+// Close Puppeteer
+await browser.close();
+
+await Actor.exit();
+```
+
+</Tab>
+</Tabs>
+
+This example captures a screenshot of multiple web pages when using `PuppeteerCrawler`:
+
+<Tabs groupId="puppeteer-capture-screenshot">
+<Tab title="Page Screenshot">
+
+Using `page.screenshot()`:
+
+```js
+
+await Actor.init();
+
+// Create a PuppeteerCrawler
+const crawler = new PuppeteerCrawler({
+    async requestHandler({ request, page }) {
+        // Capture the screenshot with Puppeteer
+        const screenshot = await page.screenshot();
+        // Convert the URL into a valid key
+        const key = request.url.replace(/[:/]/g, '_');
+        // Save the screenshot to the default key-value store
+        await Actor.setValue(key, screenshot, { contentType: 'image/png' });
+    },
+});
+
+// Run the crawler
+await crawler.run([
+    { url: 'http://www.example.com/page-1' },
+    { url: 'http://www.example.com/page-2' },
+    { url: 'http://www.example.com/page-3' },
+]);
+
+await Actor.exit();
+```
+
+</Tab>
+
+<Tab title="Crawler Utils Screenshot" >
+
+Using `puppeteerUtils.saveSnapshot()`:
+
+```js
+
+await Actor.init();
+
+// Create a PuppeteerCrawler
+const crawler = new PuppeteerCrawler({
+    async requestHandler({ request, page }) {
+        // Convert the URL into a valid key
+        const key = request.url.replace(/[:/]/g, '_');
+        // Capture the screenshot
+        await puppeteerUtils.saveSnapshot(page, { key, saveHtml: false });
+    },
+});
+
+// Run the crawler
+await crawler.run([
+    { url: 'http://www.example.com/page-1' },
+    { url: 'http://www.example.com/page-2' },
+    { url: 'http://www.example.com/page-3' },
+]);
+
+await Actor.exit();
+```
+
+</Tab>
+</Tabs>
+
+In both examples using `page.screenshot()`, a `key` variable is created based on the URL of the web page. This variable is used as the key when saving
+each screenshot into a key-value store.

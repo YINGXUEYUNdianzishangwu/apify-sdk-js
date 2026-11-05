@@ -1,0 +1,95 @@
+{
+    "$schema": "https://mintlify.com/docs.json",
+    "theme": "mint",
+    "name": "Apify SDK for JavaScript",
+    "colors": {
+        "primary": "#0e6bff",
+        "light": "#0e6bff",
+        "dark": "#0e6bff"
+    },
+    "navigation": {
+        "tabs": [
+            {
+                "tab": "Docs",
+                "groups": [
+                    {
+                        "group": "Get started",
+                        "pages": [
+                            "introduction/index",
+                            "introduction/quick-start"
+                        ]
+                    },
+                    {
+                        "group": "Concepts",
+                        "pages": [
+                            "concepts/actor_lifecycle",
+                            "concepts/request_storage",
+                            "concepts/result_storage",
+                            "concepts/proxy_management",
+                            "concepts/session_management",
+                            "concepts/environment_variables",
+                            "concepts/docker_images",
+                            "concepts/pay_per_event"
+                        ]
+                    },
+                    {
+                        "group": "Guides",
+                        "pages": [
+                            "guides/accept_user_input",
+                            "guides/add_data_to_dataset",
+                            "guides/basic_crawler",
+                            "guides/call_actor",
+                            "guides/cheerio_crawler",
+                            "guides/crawl_all_links",
+                            "guides/crawl_multiple_urls",
+                            "guides/crawl_relative_links",
+                            "guides/crawl_single_url",
+                            "guides/crawl_sitemap",
+                            "guides/crawl_some_links",
+                            "guides/forms",
+                            "guides/log_redirection",
+                            "guides/map_and_reduce",
+                            "guides/playwright_crawler",
+                            "guides/puppeteer_capture_screenshot",
+                            "guides/puppeteer_crawler",
+                            "guides/puppeteer_recursive_crawl",
+                            "guides/puppeteer_with_proxy",
+                            "guides/typescript_setup"
+                        ]
+                    },
+                    {
+                        "group": "Upgrading",
+                        "pages": [
+                            "upgrading/upgrading_v1",
+                            "upgrading/upgrading_v2",
+                            "upgrading/upgrading_v3",
+                            "upgrading/upgrading_v4"
+                        ]
+                    }
+                ]
+            },
+            {
+                "tab": "Reference",
+                "groups": [
+                    {
+                        "group": "API reference",
+                        "pages": [
+                            "reference"
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "navbar": {
+        "primary": {
+            "type": "github",
+            "href": "https://github.com/apify/apify-sdk-js"
+        }
+    },
+    "footer": {
+        "socials": {
+            "github": "https://github.com/apify/apify-sdk-js"
+        }
+    }
+}

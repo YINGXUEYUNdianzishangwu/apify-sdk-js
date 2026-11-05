@@ -1,0 +1,15 @@
+---
+title: Crawl a single URL
+---
+
+This example uses the [`got-scraping`](https://github.com/apify/got-scraping) npm package
+to grab the HTML of a web page.
+
+```js
+
+// Get the HTML of a web page
+const { body } = await gotScraping({ url: 'https://www.example.com' });
+console.log(body);
+```
+
+If you don't want to hard-code the URL into the script, refer to the [Accept User Input](guides/accept-user-input) example.

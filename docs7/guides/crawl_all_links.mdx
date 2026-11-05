@@ -1,0 +1,97 @@
+---
+title: Crawl all links on a website
+---
+
+This example uses the `enqueueLinks()` method to add new links to the `RequestQueue` as the crawler navigates from page to page. If only the
+required parameters are defined, all links will be crawled.
+
+<Tabs groupId="crawler-type">
+
+<Tab title="Cheerio Crawler" >
+
+Using `CheerioCrawler`:
+
+```js
+
+await Actor.init();
+
+const crawler = new CheerioCrawler({
+    async requestHandler({ request, enqueueLinks }) {
+        console.log(request.url);
+        // Add all links from page to RequestQueue
+        await enqueueLinks();
+    },
+    maxRequestsPerCrawl: 10, // Limitation for only 10 requests (do not use if you want to crawl all links)
+});
+
+// Run the crawler
+await crawler.run(['https://apify.com/']);
+
+await Actor.exit();
+```
+
+</Tab>
+
+<Tab title="Puppeteer Crawler">
+
+Using `PuppeteerCrawler`:
+
+<Tip>
+
+To run this example on the Apify Platform, select the `apify/actor-node-puppeteer-chrome` image for your Dockerfile.
+
+</Tip>
+
+```js
+
+await Actor.init();
+
+const crawler = new PuppeteerCrawler({
+    async requestHandler({ request, enqueueLinks }) {
+        console.log(request.url);
+        // Add all links from page to RequestQueue
+        await enqueueLinks();
+    },
+    maxRequestsPerCrawl: 10, // Limitation for only 10 requests (do not use if you want to crawl all links)
+});
+
+// Run the crawler
+await crawler.run(['https://apify.com/']);
+
+await Actor.exit();
+```
+
+</Tab>
+
+<Tab title="Playwright Crawler">
+
+Using `PlaywrightCrawler`:
+
+<Tip>
+
+To run this example on the Apify Platform, select the `apify/actor-node-playwright-chrome` image for your Dockerfile.
+
+</Tip>
+
+```js
+
+await Actor.init();
+
+const crawler = new PlaywrightCrawler({
+    async requestHandler({ request, enqueueLinks }) {
+        console.log(request.url);
+        // Add all links from page to RequestQueue
+        await enqueueLinks();
+    },
+    maxRequestsPerCrawl: 10, // Limitation for only 10 requests (do not use if you want to crawl all links)
+});
+
+// Run the crawler
+await crawler.run(['https://apify.com/']);
+
+await Actor.exit();
+```
+
+</Tab>
+
+</Tabs>
