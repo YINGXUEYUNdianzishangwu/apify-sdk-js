@@ -1,0 +1,105 @@
+---
+title: Crawl multiple URLs
+---
+
+This example crawls the specified list of URLs.
+
+<Tabs groupId="crawler-type">
+
+<Tab title="Cheerio Crawler" >
+
+Using `CheerioCrawler`:
+
+```js
+
+await Actor.init();
+
+const crawler = new CheerioCrawler({
+    // Function called for each URL
+    async requestHandler({ request, $ }) {
+        const title = $('title').text();
+        console.log(`URL: ${request.url}\nTITLE: ${title}`);
+    },
+});
+
+// Run the crawler
+await crawler.run([
+    'http://www.example.com/page-1',
+    'http://www.example.com/page-2',
+    'http://www.example.com/page-3',
+]);
+
+await Actor.exit();
+```
+
+</Tab>
+
+<Tab title="Puppeteer Crawler">
+
+Using `PuppeteerCrawler`:
+
+<Tip>
+
+To run this example on the Apify Platform, select the `apify/actor-node-puppeteer-chrome` image for your Dockerfile.
+
+</Tip>
+
+```js
+
+await Actor.init();
+
+const crawler = new PuppeteerCrawler({
+    // Function called for each URL
+    async requestHandler({ request, page }) {
+        const title = await page.title();
+        console.log(`URL: ${request.url}\nTITLE: ${title}`);
+    },
+});
+
+// Run the crawler
+await crawler.run([
+    'http://www.example.com/page-1',
+    'http://www.example.com/page-2',
+    'http://www.example.com/page-3',
+]);
+
+await Actor.exit();
+```
+
+</Tab>
+
+<Tab title="Playwright Crawler">
+
+Using `PlaywrightCrawler`:
+
+<Tip>
+
+To run this example on the Apify Platform, select the `apify/actor-node-playwright-chrome` image for your Dockerfile.
+
+</Tip>
+
+```js
+
+await Actor.init();
+
+const crawler = new PlaywrightCrawler({
+    // Function called for each URL
+    async requestHandler({ request, page }) {
+        const title = await page.title();
+        console.log(`URL: ${request.url}\nTITLE: ${title}`);
+    },
+});
+
+// Run the crawler
+await crawler.run([
+    'http://www.example.com/page-1',
+    'http://www.example.com/page-2',
+    'http://www.example.com/page-3',
+]);
+
+await Actor.exit();
+```
+
+</Tab>
+
+</Tabs>

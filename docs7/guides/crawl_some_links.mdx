@@ -1,0 +1,29 @@
+---
+title: Crawl some links on a website
+---
+
+This [`CheerioCrawler`](https://crawlee.dev/js/cheerio-crawler/class/CheerioCrawler) example uses the [`pseudoUrls`](https://crawlee.dev/js/core/class/PseudoUrl) property in the [`enqueueLinks()`](https://crawlee.dev/js/cheerio-crawler/interface/CheerioCrawlingContext#enqueueLinks) method to only add links to the [`RequestQueue`](reference) queue if they match the specified regular expression.
+
+```js
+
+await Actor.init();
+
+// Create a CheerioCrawler
+const crawler = new CheerioCrawler({
+    // Limits the crawler to only 10 requests (do not use if you want to crawl all links)
+    maxRequestsPerCrawl: 10,
+    // Function called for each URL
+    async requestHandler({ request, enqueueLinks }) {
+        console.log(request.url);
+        // Add some links from page to the crawler's RequestQueue
+        await enqueueLinks({
+            pseudoUrls: ['http[s?]://apify.com/[.+]/[.+]'],
+        });
+    },
+});
+
+// Define the starting URL and run the crawler
+await crawler.run(['https://apify.com/store']);
+
+await Actor.exit();
+```
