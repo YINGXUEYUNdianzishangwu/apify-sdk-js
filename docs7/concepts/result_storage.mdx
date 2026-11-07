@@ -3,7 +3,7 @@ title: Result storage
 ---
 
 The Apify SDK has several result storage types that are useful for specific tasks. The data is stored either on local disk to a directory defined by the
-`APIFY_LOCAL_STORAGE_DIR` environment variable, or on the [Apify platform](concepts/actor-lifecycle) under the user account
+`APIFY_LOCAL_STORAGE_DIR` environment variable, or on the [Apify platform](concepts/actor_lifecycle) under the user account
 identified by the API token defined by the `APIFY_TOKEN` environment variable. If neither of these variables is defined, by default Apify SDK sets
 `APIFY_LOCAL_STORAGE_DIR` to `./storage` in the current working directory and prints a warning.
 
@@ -27,8 +27,8 @@ Each actor run is associated with a **default key-value store**, which is create
 and output is stored in the default key-value store under the `INPUT` and `OUTPUT` key, respectively. Typically the input and output is a JSON file,
 although it can be any other format.
 
-In the Apify SDK, the key-value store is represented by the [`KeyValueStore`](reference) class. In order to simplify access to the default
-key-value store, the SDK also provides [`Actor.getValue()`](reference) and [`Actor.setValue()`](reference) functions.
+In the Apify SDK, the key-value store is represented by the [`KeyValueStore`](https://crawlee.dev/js/core/class/KeyValueStore) class. In order to simplify access to the default
+key-value store, the SDK also provides [`Actor.getValue()`](https://docs.apify.com/sdk/js/reference/class/Actor#getValue) and [`Actor.setValue()`](https://docs.apify.com/sdk/js/reference/class/Actor#setValue) functions.
 
 In local configuration, the data is stored in the directory specified by the `APIFY_LOCAL_STORAGE_DIR` environment variable as follows:
 
@@ -64,7 +64,7 @@ const value = await store.getValue('some-key');
 await store.setValue('some-key', null);
 ```
 
-To see a real-world example of how to get the input from the key-value store, see the [Screenshots](guides/capture-screenshot) example.
+To see a real-world example of how to get the input from the key-value store, see the [Screenshots](guides/puppeteer_capture_screenshot) example.
 
 ## Dataset
 
@@ -72,7 +72,7 @@ Datasets are used to store structured data where each object stored has the same
 can imagine a dataset as a table, where each object is a row and its attributes are columns. Dataset is an append-only storage - you can only add new
 records to it but you cannot modify or remove existing records.
 
-When the dataset is stored on the [Apify platform](concepts/actor-lifecycle), you can export its data to the following formats: HTML,
+When the dataset is stored on the [Apify platform](concepts/actor_lifecycle), you can export its data to the following formats: HTML,
 JSON, CSV, Excel, XML and RSS. The datasets are displayed on the actor run details page and in the
 [Storage](https://console.apify.com/storage) section in the Apify Console. The actual data is exported using the
 [Get dataset items](https://apify.com/docs/api/v2#/reference/datasets/item-collection/get-items) Apify API endpoint. This
@@ -81,8 +81,8 @@ way you can easily share crawling results.
 Each actor run is associated with a **default dataset**, which is created exclusively for the actor run. Typically, it is used to store crawling
 results specific for the actor run. Its usage is optional.
 
-In the Apify SDK, the dataset is represented by the [`Dataset`](reference) class. In order to simplify writes to the default dataset, the SDK
-also provides the [`Actor.pushData()`](reference) function.
+In the Apify SDK, the dataset is represented by the [`Dataset`](https://crawlee.dev/js/core/class/Dataset) class. In order to simplify writes to the default dataset, the SDK
+also provides the [`Actor.pushData()`](https://docs.apify.com/sdk/js/reference/class/Actor#pushData) function.
 
 In local configuration, the data is stored in the directory specified by the `APIFY_LOCAL_STORAGE_DIR` environment variable as follows:
 
@@ -110,4 +110,4 @@ await dataset.pushData({ foo: 'bar' });
 await dataset.pushData([{ foo: 'bar2', col2: 'val2' }, { col3: 123 }]);
 ```
 
-To see how to use the dataset to store crawler results, see the [Cheerio Crawler](guides/cheerio-crawler) example.
+To see how to use the dataset to store crawler results, see the [Cheerio Crawler](guides/cheerio_crawler) example.
