@@ -19,7 +19,7 @@ them immediately in only a few lines of code.
 
 <Note title="Authentication required">
 
-If you want to use Apify Proxy, make sure that your [scraper is logged in](concepts/actor-lifecycle).
+If you want to use Apify Proxy, make sure that your [scraper is logged in](concepts/actor_lifecycle).
 
 </Note>
 
@@ -46,7 +46,7 @@ const proxyUrl = proxyConfiguration.newUrl();
 
 ## Proxy Configuration
 
-All your proxy needs are managed by the [`ProxyConfiguration`](reference) class. You create an instance using the [`Actor.createProxyConfiguration()`](reference) function. See the [`ProxyConfigurationOptions`](reference) for all the possible constructor options.
+All your proxy needs are managed by the [`ProxyConfiguration`](https://crawlee.dev/js/core/class/ProxyConfiguration) class. You create an instance using the [`Actor.createProxyConfiguration()`](https://docs.apify.com/sdk/js/reference/class/Actor#createProxyConfiguration) function. See the [`ProxyConfigurationOptions`](https://crawlee.dev/js/core/interface/ProxyConfigurationOptions) for all the possible constructor options.
 
 ### Crawler integration
 
@@ -85,12 +85,12 @@ Your crawlers will now use the selected proxies for all connections.
 
 ### IP Rotation and session management
 
-[`proxyConfiguration.newUrl()`](reference)
+[`proxyConfiguration.newUrl()`](https://crawlee.dev/js/core/class/ProxyConfiguration#newUrl)
 allows you to pass a `sessionId` parameter. It will then be used to create a
 `sessionId`-`proxyUrl` pair, and subsequent `newUrl()` calls with the same
 `sessionId` will always return the same `proxyUrl`. This is extremely useful in
 scraping, because you want to create the impression of a real user. See the
-[session management guide](concepts/session-management) and
+[session management guide](concepts/session_management) and
 [`SessionPool`](https://crawlee.dev/js/core/class/SessionPool) class
 for more information on how keeping a real session helps you avoid blocking.
 
@@ -137,7 +137,7 @@ one would call a super-proxy. It's not a single proxy server, but an API endpoin
 that allows connection through millions of different IP addresses. So the class
 essentially has two modes: Apify Proxy or Your proxy.
 
-The difference is easy to remember. [`ProxyConfigurationOptions.proxyUrls`](reference) and [`ProxyConfigurationOptions.newUrlFunction`](reference) enable use of your custom proxy URLs, whereas all the other options are there to configure Apify Proxy. Visit the [Apify Proxy docs](https://docs.apify.com/proxy) for more info on how these parameters work.
+The difference is easy to remember. [`ProxyConfigurationOptions.proxyUrls`](https://crawlee.dev/js/core/interface/ProxyConfigurationOptions#proxyUrls) and [`ProxyConfigurationOptions.newUrlFunction`](https://crawlee.dev/js/core/interface/ProxyConfigurationOptions#newUrlFunction) enable use of your custom proxy URLs, whereas all the other options are there to configure Apify Proxy. Visit the [Apify Proxy docs](https://docs.apify.com/proxy) for more info on how these parameters work.
 
 ## Apify Proxy Configuration
 
@@ -157,6 +157,6 @@ Now your crawlers will use only Residential proxies from California, US. The `su
 ## Inspecting current proxy in Crawlers
 
 `CheerioCrawler` and `PuppeteerCrawler` grant access to information about the currently used proxy
-in their `handlePageFunction` using a [`proxyInfo`](reference) object.
+in their `handlePageFunction` using a [`proxyInfo`](https://crawlee.dev/js/core/interface/ProxyInfo) object.
 With the object, you can easily access the proxy URL. If you're using Apify Proxy, the other
 configuration parameters will also be available in the `proxyInfo` object.
